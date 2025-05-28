@@ -114,4 +114,18 @@
   * 요청 본문에 단순 문자열 데이터를 포함한다
 
 ## HttpServletResponse
+### 개요
+* HttpServletResponse 는 서버가 클라이언트의 요청에 대한 응답을 생성하고 반환할 때 사용되며 HTTP 응답의 상태 코드, 헤더, 본문 데이터를 설정하고 제어하는 다양한 메서드를 제공한다.
+
+### HttpServletResponse 생성
+1. org.apache.coyote.Response 객체 생성
+  * 낮은 수준의 HTTP 응답 처리를 담당하여 서블릿 컨테이너와 독립적으로 동작
+2. org.apache.catalina.connector.Response 객체 생성
+  * 서블릿 API 규격을 구현하고 고수준 응답 데이터를 처리
+3. org.apache.catalina.connector.ResponseFacade 객체 생성
+  * 캡슐화를 통해 서블릿 API 사용을 표준화하고 내부 구현을 보호
+
 ## HttpServletResponse 요청 처리
+### 개요
+* HttpServletResponse는 응답을 처리하는 방식으로 단순 텍스트 응답, HTML 화면 처리 응답, HTTP 본문 응답 등 세 가지로 나누어 구분 할 수 있다.
+* 스프링에서도 응답 패턴이 이 세 가지 범주에서 크게 벗어나지 않으며 사용하기 쉽게 추상화 해서 제공하고 있다.
