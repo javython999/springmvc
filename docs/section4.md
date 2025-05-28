@@ -28,7 +28,90 @@
   * 서블릿이 서비스에서 제외되면 destroy() 메서드를 통해 종료되고 이후 가비지 컬렉션 및 finalize 과정을 거친다.
 
 ## HttpServletRequest
+### 개요
+* HttpServletRequest는 클라이언트로부터 Http 요청이 들어오면 요청 데이터를 분석하고 분석한 정보들이 저장되어 HttpServletResponse와 함께 서블릿으로 전달되는 객체이다.
+
+### HttpServletRequest 생성
+1. org.apache.coyote.Request 객체 생성
+   * 낮은 수준의 HTTP 요청 처리를 담당하여 서블릿 컨테이너와 독립적으로 동작
+2. org.apache.catalina.connector.Request 객체 생성
+   * 서블릿 API 규격을 구현하고 고수준 요청 데이터를 처리
+3. org.apache.catalina.connector.RequestFacade 객체 생성
+   * 캡슐화를 통해 서블릿 API 사용을 표준화하고 내부 구현을 보호
+
 ## HttpServletRequest 기본
+### 개요
+* HttpServletRequest는 클라이언트 요청에 대한 서블릿 API의 핵심 인터페이스로서 개발 시 자주 활용되거나 기본적으로 숙지해야할 API들이 있다.
+
+#### Header 관련
+1. getHeader(String name)
+2. getHeaders(String name)
+3. getHeaderNames()
+
+#### 요청 메서드 및 경로 관련
+1. getMethod()
+2. getRequestURI()
+3. getRequestURL()
+4. getContextPath()
+5. getServletPath()
+6. getPathInfo()
+
+#### 세션 관련
+1. getSession(boolean create)
+2. getSession()
+3. getRequestedSessionId()
+
+#### 속성 관련
+1. getAttribute(String name)
+2. getAttributeNames()
+3. setAttribute(String name, Object value)
+4. removeAttribute(String name)
+
+#### 원격 및 로컬 정보 관련
+1. getRemoteAddr()
+2. getRemoteHost()
+3. getRemotePort()
+4. getLocalAddr()
+5. getLocalName()
+6. getLocalPort()
+
+#### 기타 메타데이터 관련
+1. getContentType()
+2. getContentLength()
+3. getProtocol()
+4. getScheme()
+5. getServerName()
+6. getServerPort()
+
 ## HttpServletRequest 요청 처리
+### 개요
+* HttpServletRequest 는 클라이언트의 다양한 데이터 포맷과 요청 유형에 따라 정보를 읽고 처리할 수 있는 API 를 제공한다.
+* 요청을 처리하는 방식으로 URL 쿼리 파라미터, 폼 데이터(GET/POST), REST API 처리 등 세 가지로 나누어 구분 할 수 있다.
+
+### URL 쿼리 파라미터
+* URL 쿼리 파라미터는 HTTP 요청의 쿼리 문자열(Query String)에 포함되어 전달되며 이는 보통 GET 요청에서 사용된다.
+
+### FROM 데이터 처리
+* FORM 데이터는 HTML <form> 태그를 통해 클라이언트에서 서버로 전달되며데이터는 요청 메서드에 따라 다르게 처리된다.
+
+* GET 방식
+  * 요청 데이터가 URL의 쿼리 문자열에 포함된다
+  * 전송 데이터의 크기는 URL 길이 제한에 의해 제약을 받지 않고URL이 노출되므로 민감한 데이터 전송에 적합하지 않다
+* POST 방식
+  * 요청 데이터가 HTTP 요청 본문에 포함된다
+  * Content-Type
+    * application/x-www-form-urlencoded - 기본 폼 데이터 전송 방식으로서키-값 쌍이 URL 인코딩된 형태로 전달된다
+    * Body: name=leaven&hobby=reading&hobby=writing
+
+### REST API 데이터 처리
+* REST API 요청은 클라이언트가 JSON 또는 Plain Text 형태의 데이터를 HTTP 요청 본문에 포함하여 서버로 전송하는 방식으로서 getParameter() 와 같은 방법이 아닌 InputStream 으로부터 본문 데이터를 직접 읽어야 한다.
+* JSON 데이터
+  * Content-Type: application/json
+  * 요청 본문에 JSON 형식으로 데이터를 포함한다
+  * JSON 데이터를 처리하려면 요청 본문을 파싱해야 한다
+* Plain Text 데이터
+  * Content-Type: text/plain
+  * 요청 본문에 단순 문자열 데이터를 포함한다
+
 ## HttpServletResponse
 ## HttpServletResponse 요청 처리
