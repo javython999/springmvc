@@ -217,6 +217,69 @@ public String getSingleCharacterMatch() {
 * value: name과 동일한 기능을 한다.
 
 ## @ModelAttribute
+* @ModelAttribute는 스프링 MVC에서 주로 폼 데이터나 요청 파라미터를 모델 객체에 바인딩할 때 사용하는 애노테이션이다.
+* 요청 파라미터를 특정 객체의 각 필드(요청 파라미터명과 일치)에 바인딩하고 이후 자동으로 모델에 추가하여 뷰에서 사용할 수 있게 한다.
+* 일반적으로 기본형 타입(int, long, String ..)의 바인딩은 @RequestParam이 처리하고 객체 타입은 @ModelAttribute가 처리한다고 보면 된다.
+
+### 데이터 바인딩 없이 모델에 접근
+* 데이터 바인딩 없이 모델에 접근하고자 할 경우 @ModelAttribute(binding=false)로 설정하여 데이터 바인딩 없이 객체에 접근할 수 있다.
+```java
+@PostMapping("/update")
+public String update(@ModelAttribute(binding=false) User user) {
+    // user'는데이터바인딩없이접근가능
+    return "result";
+}
+```
+
+### 생성자 바인딩 : @BindParam
+* @ModelAttribute는 요청 파라미터와 일치하는 생성자를 통해 객체를 생성할 수도 있으며 생성자 바인딩을 사용할 때는 @BindParam을 이용해 요청 파라미터의 이름을 매핑할 있다.
+```java
+@PostMapping("/account")
+public String processAccount(@ModelAttribute Account account) {
+    System.out.println("First Name: " + account.getFirstName());
+    return "accountResult";
+}
+```
+```java
+public class Account {
+    private final String firstName;
+ 
+    public Account(@BindParam("first-name") String firstName) {
+        this.firstName = firstName;
+    }
+}
+```
+
+### 경로 변수 or 요청 파라미터 객체 바인딩
+* Converter<String, T>가 등록되어 있고 @ModelAttribute 속성 이름이 경로 변수와 일치하는 경우 Converter를 사용하여 모델 객체를 가져올 수 있다.
+
+### 메서드에 @ModelAttribute 선언
+* 컨트롤러에서 모델에 데이터를 추가하는 역할을 한다. 이 경우메서드가 리턴한 객체가 자동으로 모델에 추가된다.
+* 주로 뷰에서 공통적으로 사용되는 데이터를 미리 모델에 추가할 때 사용된다. 예를 들어드롭다운 리스트에 넣을 데이터나 공통적으로 사용되는 객체 등을 미리 준비하는 경우 유용하다.
+
+```java
+@ModelAttribute("user")
+public AccountDto addUser() { // 먼저호출된다
+    return new AccountDto("leaven", "1234");
+}
+
+@GetMapping("/form")
+public String showForm(Model model, AccountDto account) {
+    return "userForm";
+}
+```
+### 흐름도
+
+```mermaid
+flowchart TB
+    client --> DispatcherServlet
+    DispatcherServlet --> RequestMappingHandlerAdapter
+    RequestMappingHandlerAdapter --> Controller#Method
+    Controller#Method --> ModelFactory
+    ModelFactory --> ServletModelAttributeMethodProcessor
+    ServletModelAttributeMethodProcessor --> ServletInvocableHandlerMethod
+```
+
 ## HttpEntity RequestEntity
 ## @RequestBody
 ## HttpMessageConverter
