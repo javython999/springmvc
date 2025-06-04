@@ -280,7 +280,70 @@ flowchart TB
     ServletModelAttributeMethodProcessor --> ServletInvocableHandlerMethod
 ```
 
-## HttpEntity RequestEntity
+## HttpEntity / RequestEntity
+### 개요
+* HTTP 요청이 파라미터나 폼 데이터가 아닌 요청 본문(Body)일 경우 앞서 보았던 @RequestParam이나 @ModelAttribute는 요청을 매개변수에 바인딩 할 수 없다.
+* 일반적으로 헤더정보가 Content-type=application/ json과 같이 되어 있는 HTTP 본문 요청은 getParameter()로 읽어 드릴 수 없으며 직접 본문 데이터를 파싱해서 읽는 방식으로 처리해야 한다.
+
+### HttpServletRequest – InputStream, Reader
+* HTTP 요청 본문(Body)은 HttpServletRequest의 InputStream 또는 Reader를 통해 접근할 수 있으며 요청 본문은 getInputStream() 또는 getReader() 메서드를 사용하여 읽을 수 있다.
+
+```java
+@PostMapping("/readbody")
+public String readBody(HttpServletRequest request) throws IOException {
+   StringBuilder requestBody = new StringBuilder();
+    
+   try (BufferedReader reader = request.getReader()) {
+       String line;
+       while ((line = reader.readLine()) != null) {
+           requestBody.append(line);
+       }
+   }
+   return "Received Body: " + requestBody.toString();
+}
+```
+
+### HttpEntity
+* HttpEntity는 기존 HttpServletRequest나 HttpServletResponse를 사용하여 요청 및 응답 데이터를 처리하는 복잡성을 해결하기 위해 도입되었다.
+* HttpHeaders와 Body 데이터를 하나의 객체로 통합하였고 JSON, XML, 문자열, 바이너리 데이터 등 다양한 본문 데이터 형식을 처리 가능하게 하였다.
+* 내부적으로 HttpMessageConverter 객체가 작동되어 본문을 처리한다.
+
+### 구조
+1. 생성자
+   * HttpEntity<T>() - 본문과 헤더 없이 객체 생성.
+   * HttpEntity<T>(T body) - 본문만 포함.
+   * HttpEntity<T>(T body, HttpHeaders headers) - 본문과 헤더를 포함.
+2. 메서드
+   * T getBody() - 요청 또는 응답의 본문 데이터 반환.
+   * HttpHeaders getHeaders() - 요청 또는 응답의 헤더 반환.
+3. 상속 구조
+```mermaid
+flowchart BT
+    RequestEntity --> HttpEntity
+    ResponseEntity --> HttpEntity
+    
+    
+```
+
+### RequestEntity
+* HttpEntity의 확장 버전으로 HTTP 메서드와 대상 URL도 포함하며 RestTemplate에서 요청을 준비하거나 @Controller 메서드에서 요청 입력을 나타낼 때 사용된다.
+
+### 흐름도
+```mermaid
+flowchart TB
+    client --> DispatcherServlet
+    DispatcherServlet --> RequestMappingHandlerAdapter
+    HttpEntityMethodProcessor --text/plain--> StringHttpMessageConverter
+    StringHttpMessageConverter --> String변환
+    String변환 --> HttpEntity
+    String변환 --> RequestEntity
+    HttpEntityMethodProcessor --application/json--> MappingJackson2HttpMessageConverter
+    MappingJackson2HttpMessageConverter --> ObjectMapper
+    MappingJackson2HttpMessageConverter --read--> 객체변환
+    객체변환 --> HttpEntity
+    객체변환 --> RequestEntity
+```
+
 ## @RequestBody
 ## HttpMessageConverter
 ## @RequestHeader & @RequestAttribute & @CookieValue
