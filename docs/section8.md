@@ -345,7 +345,160 @@ flowchart TB
 ```
 
 ## @RequestBody
+* @RequestBody는 HTTP 요청 본문(HTTP Body)을 자동으로 객체로 매핑하는데 사용되며 내부적으로 HttpMessageConverter 객체가 작동되어 본문을 처리한다.
+* HttpEntity 및 RequestEntity도 요청 본문을 처리해 주지만 지정된 객체로 자동 매핑을 해 주지는 않는다.
+* @Valid 애너테이션과 함께 사용하면 요청 본문의 유효성을 쉽게 검증할 수 있다.
+
+### @RequestBody vsHttpEntity
+* @RequestBody는 요청의 Content-Type 헤더를 기반으로 적절한 HttpMessageConverter를 선택하기 때문에 Content-Type 헤더가 올바르게 설정되어야 한다.
+* @RequestBody는 생략하면 안된다. 생략할 경우 기본형은 @RequestParam, 객체 타입은 @ModelAttribute가 작동하게 되지만 정확한 결과를 보장할 수 없다.
+
+### 구현 예제
+```java
+//  application/json 타입으로 JSON 데이터 받기
+@PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+public ResponseEntity<String> createUser(@RequestBody UserDto userDto) {    
+    return ResponseEntity.ok("Username: " + userDto.getName());
+}
+
+// text/plain 타입으로 문자열 데이터 받기
+@PostMapping(consumes = MediaType.TEXT_PLAIN_VALUE)
+public ResponseEntity<String> handlePlainText(@RequestBody String message) {
+    return ResponseEntity.ok("message: " + message);
+}
+
+// application/x-www-form-urlencoded 데이터 받기
+@PostMapping(consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+public ResponseEntity<String> handleForm(@RequestBody MultiValueMap<String, String> formData) {
+    String name = formData.getFirst("name");
+    String email = formData.getFirst("email");
+    return ResponseEntity.ok("Name = " + name + ", Email = " + email);
+}
+
+// Mixed Content-Type 지원 (application/json + text/plain)
+@PostMapping(consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.TEXT_PLAIN_VALUE})
+public ResponseEntity<String> handleMixedContent(@RequestBody Object data) {
+    if (data instanceof String) {
+        return ResponseEntity.ok("Received plain text: " + data);
+    } else {
+        UserDto userDto = (UserDto) data;
+        return ResponseEntity.ok("User: " + userDto.getName());
+    }
+}
+```
+
+### 흐름도
+```mermaid
+flowchart TB
+    client --> DispatcherServlet
+    DispatcherServlet --> RequestMappingHandlerAdapter
+    RequestMappingHandlerAdapter --@RequestBody?--> RequestResponseBodyMethodProcessor
+    RequestResponseBodyMethodProcessor --text/plain--> StringHttpMessageConverter
+    StringHttpMessageConverter --> String변환
+    StringHttpMessageConverter --> HttpInputMessage
+    RequestResponseBodyMethodProcessor --application/json --> MappingJackson2HttpMessageConverter
+    MappingJackson2HttpMessageConverter --> ObjectMapper
+    MappingJackson2HttpMessageConverter --read--> 객체변환
+```
+
 ## HttpMessageConverter
+### 개요
+* HttpMessageConverter는 HTTP 요청과 응답의 바디(body) 내용을 객체로 변환하고객체를 HTTP 메시지로 변환하는데 사용되는 인터페이스이다.
+* HttpMessageConverter는 클라이언트와 서버 간의 데이터를 직렬화/역직렬화하는 기능을 담당하며주로 JSON, XML, Plain Text와 같은 다양한 데이터 포맷을 지원한다.
+* HttpMessageConverter는 주로 Rest API 통신에서 사용된다.
+
+### 흐름도
+```mermaid
+flowchart LR
+    HttpBody --> MethodParameter
+    MethodParameter --> HttpMessageConverter
+    subgraph MethodParameter
+        RequestBody
+        RequestEntity
+        ResponseBody
+        ResponseEntity
+        HttpEntity
+    end
+    
+```
+### HttpMessageConverter 요청 처리 흐름
+### 흐름도
+```mermaid
+flowchart TB
+    client --> DispatcherServlet
+    DispatcherServlet --> RequestMappingHandlerAdapter
+    RequestMappingHandlerAdapter --> HandlerMethodArgumentResolver
+    HandlerMethodArgumentResolver --> RequestResponseBodyMethodProcessor
+    HandlerMethodArgumentResolver --> HttpEntityMethodProcessor
+    HandlerMethodArgumentResolver --> HttpMessageConverter
+    HttpMessageConverter --canRead:false--> HttpMessageNotReadableException
+    HttpMessageConverter --canRead:true--> 객체변환
+    객체변환 --> HandlerAdapter
+```
+1. 클라이언트의 Content-Type 헤더
+   * 클라이언트가 서버로 데이터를 전송한다. 이때 HTTP 헤더에 Content-Type을 포함하여 서버에 데이터 형식을 알린다.
+2. ArgumentResolver 실행
+   * Spring은 컨트롤러의 메서드 매개변수에 @RequestBody 혹은 HttpEntity 등이 선언 되었는지 확인한다.
+   * 선언이 되었다면 HTTP 요청 본문 ArgumentResolver가 선택되고 ArgumentResolver는 HttpMessageConverter를 실행한다.
+3. HttpMessageConverter 작동
+   * HttpMessageConverter는 클라이언트의 Content-Type 헤더를 기준으로 요청 본문 데이터를 특정객체로 변환한다.
+
+### HttpMessageConverter 응답 처리 흐름
+### 흐름도
+```mermaid
+flowchart TB
+    client --> DispatcherServlet
+    DispatcherServlet --> RequestMappingHandlerAdapter
+    RequestMappingHandlerAdapter --> HttpMessageConverter
+    HttpMessageConverter --canRead:false--> HttpMessageNotWritableException
+    HttpMessageConverter --canRead:true--> 데이터생성
+    데이터생성 --기록-->HttpBody
+```
+1. 클라이언트의 Accept 헤더
+   * 클라이언트는 Accept 헤더를 통해 서버가 어떤 형식의 데이터를 반환해야 하는지 명시한다.
+2. ReturnValueHandler 실행
+   * Spring은 컨트롤러의 반환 타입에 @ResponseBody 또는 ResponseEntity가 선언되었는지 확인한다.
+3. HttpMessageConverter 작동
+   * HttpMessageConverter는 클라이언트의 Accept 헤더를 기준으로 데이터를 응답 본문에 기록한다.
+
+### HttpMessageConverter 요청/응답 구조
+```mermaid
+flowchart LR
+    RequestMappingHandlerAdapter --> ServletInvocableHandlerMethod
+    ServletInvocableHandlerMethod --> ArgumentResolver
+    ArgumentResolver --> HttpMessageConverter --> arg
+    ServletInvocableHandlerMethod --> Handler
+    ServletInvocableHandlerMethod --> ReturnValueHandler
+    ReturnValueHandler --> HttpMessageConverter
+    HttpMessageConverter --> data --> HttpBody
+```
+
+### HttpMessageConverter 주요 구현체
+1. ByteArrayHttpMessageConverter
+   * application/octet-stream과 같은 바이너리 데이터를 처리하며주로 파일 전송에 사용된다.
+2. StringHttpMessageConverter
+   * text/plain과 같은 문자열데이터를 String 객체로 변환하거나 String 객체를 text/plain 형식으로 변환하여 HTTP 본문에 넣는다.
+3. ResourceHttpMessageConverter
+   * Resource 타입의 데이터를 HTTP 요청과 응답으로 변환하거나 처리하는데 사용된다. 
+4. MappingJackson2HttpMessageConverter
+   * application/json 형식의 데이터를 파싱하여 Java 객체를 JSON으로 변환하거나 JSON을 Java 객체로 변환한다.
+5. FormHttpMessageConverter
+   * MultiValueMap + application/x-www-form-urlencoded 형식의 데이터를 파싱하여 MultiValueMap 형태로 변환한다.
+
+### HttpMessageConverter 가 작동하지 않는 요청
+1. GET 요청과 같은 본문이 없는 요청
+   * GET, DELETE와 같은 HTTP 메서드는 일반적으로 본문을 포함하지 않으므로 HttpMessageConverter가 작동하지 않는다.
+2. Content-Type 헤더가 지원되지 않는 요청
+   * POST, PUT 등의 본문이 포함된 HTTP 요청이라도 Content-Type 헤더가 지원되지 않는 미디어 타입일 경우 HttpMessageConverter가 작동하지 않는다.
+3. @RequestParam, @ModelAttribute를 사용하는 경우
+    * @RequestParam, @ModelAttribute와 같은 애노테이션을 사용하여 쿼리 파라미터나 application/x-www-form-urlencoded 형식의 폼 데이터를 처리하는 경우 HttpMessageConverter가 필요하지 않다.
+4. 파일 업로드 요청 중 @RequestPart 또는 MultipartFile을 사용한 경우
+   * multipart/form-data 요청에서 파일을 업로드할 때, MultipartFile이나 @RequestPart를 사용하면 HttpMessageConverter가 작동하지 않으며 이 경우에는 MultipartResolver 가 요청을 처리한다.
+5. 컨트롤러에서 단순 문자열(String) 반환 시 @ResponseBody나 @RestController가 없는 경우
+   * 컨트롤러 메서드가 String을 반환하지만 @ResponseBody나 @RestController가 없는 경우 반환된 String은 뷰 이름으로 간주되며 이 경우에는 ViewResolver가 요청을 처리한다.
+
+
+
 ## @RequestHeader & @RequestAttribute & @CookieValue
 ## Model
 ## @SessionAttributes
