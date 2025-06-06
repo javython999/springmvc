@@ -497,10 +497,86 @@ flowchart LR
 5. 컨트롤러에서 단순 문자열(String) 반환 시 @ResponseBody나 @RestController가 없는 경우
    * 컨트롤러 메서드가 String을 반환하지만 @ResponseBody나 @RestController가 없는 경우 반환된 String은 뷰 이름으로 간주되며 이 경우에는 ViewResolver가 요청을 처리한다.
 
-
-
 ## @RequestHeader & @RequestAttribute & @CookieValue
+### @RequestHeader
+* 클라이언트의 요청 헤더를 컨트롤러의 메서드 인자에 바인딩 하기 위해 @RequestHeader 애노테이션을 사용할 수 있다.
+* RequestHeaderMethodArgumentResolver 클래스가 사용된다.
+```java
+@GetMapping("/header")
+public void handle( @RequestHeader("Accept-Encoding") String encoding, @RequestHeader("Keep-Alive") long keepAlive) {
+    System.out.println(" Accept-Encoding : " + encoding);
+    System.out.println("Keep-Alive: " + keepAlive);
+}
+```
+
+#### Map 을 파라미터로 사용
+```java
+@GetMapping("/headers")
+public void handleHeaders(@RequestHeader Map<String, String> headers) {
+    headers.forEach((key, value) -> {
+        System.out.println(key + ": " + value);
+    });
+}
+```
+#### MultiValueMap 을 파라미터로 사용 -하나의 키에 여러 값을 매핑할 수 있는 자료구조( 구현체로 HttpHeaders 가 있다)
+```java
+@GetMapping("/headers")
+public void handleHeaders(@RequestHeader MultiValueMap<String, String> headers) {
+    headers.forEach((key, values) -> {
+        System.out.println(key + ": " + values);
+    });
+}
+```
+#### 쉼표로 구분된 문자열을 배열이나 List 타입으로 변환
+```java
+@GetMapping("/accept")
+public void handleAccept(@RequestHeader("Accept") List<String> acceptHeaders) {
+    System.out.println("Accept Headers: " + acceptHeaders);
+}
+```
+
+### @RequestAttribute
+* HTTP 요청 속성(request attribute)을 메서드 파라미터에 바인딩할 때 사용하는 애노테이션으로서 주로 필터나 인터셉터에서 설정한 값을 컨트롤러 메서드에서 사용할 때 유용하다.
+* RequestAttributeMethodArgumentResolver 클래스가 사용 된다.
+
+```java
+@WebFilter("/example")
+public class MyAttributeFilter implements Filter {
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
+        request.setAttribute("myAttribute", "This is a request attribute");
+        chain.doFilter(request, response);
+    }
+}
+```
+```java
+@GetMapping("/example")
+public String handleRequest(@RequestAttribute("myAttribute") String myAttribute) {
+    return "Attribute Value: " + myAttribute; //Attribute Value :This is a request attribute
+}
+```
+
+### @CookieValue
+* HTTP 요청의 쿠키 값을 메서드 파라미터에 바인딩할 때 사용하는 애노테이션으로서 클라이언트에서 전송한 쿠키 값을 쉽게 받아 처리할 수 있다.
+* @CookieValue 는 특정 쿠키의 값을 메서드 파라미터로 전달하며기본값을 설정하거나 쿠키가 존재하지 않을 때 예외를 처리할 수 있는 옵션을 제공한다.
+* ServletCookieValueMethodArgumentResolver 클래스가 사용 된다.
+
+```java
+@GetMapping("/cookie")
+public String getCookie(@CookieValue(value = "userSession", defaultValue = "defaultSession") String session) {
+    return "Session ID: " + session;
+}
+```
+
 ## Model
+### 개요
+* Model은 컨트롤러와 뷰 사이의 데이터를 전달하는 역할을 하며 컨트롤러에서 데이터를 Model 객체에 추가하면 그 데이터는 뷰에서 접근할 수 있게 된다.
+* Model 인터페이스는 주로 HTML 렌더링을 위한 데이터 보관소 역할을 하며 Map과 유사한 방식으로 동작한다.
+* 내부적으로 ModelMethodProcessor 클래스가 사용된다.
+
+#### BindingAwareModelMap
+* BindingAwareModelMap은 Model 구현체로서 @ModelAttribute로  바인딩된 객체를 가지고 있으며 바인딩 결과를 저장하는 BindingResult를 생성하고 관리한다.
+
 ## @SessionAttributes
 ## @SessionAttribute
 ## RedirectAttributes & Flash Attributes
