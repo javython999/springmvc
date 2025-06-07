@@ -578,8 +578,182 @@ public String getCookie(@CookieValue(value = "userSession", defaultValue = "defa
 * BindingAwareModelMap은 Model 구현체로서 @ModelAttribute로  바인딩된 객체를 가지고 있으며 바인딩 결과를 저장하는 BindingResult를 생성하고 관리한다.
 
 ## @SessionAttributes
+### 개요
+* @SessionAttributes는 세션(Session)에 속성 값을 저장하고 그 값을 다른 요청에서도 사용할 수 있도록 하기 위해 사용되는 애노테이션이다.
+* @SessionAttributes는 컨트롤러 클래스 레벨에 선언되며 특정 모델 속성 이름을 지정하면 세션에 자동으로 저장된다.
+* @SessionAttributes는 모델에 저장된 객체를 세션에 저장하는 역할과 세션에 저장된 객체를 모델에 저장하는 역할을 한다.
+
+### @SessionAttributes 기본 - 세션 저장
+````java
+@Controller
+@SessionAttributes("user")
+public class UserController {
+    @GetMapping("/users")
+    public String users(Model model) {
+        model.addAttribute("user", new User("springmvc", "a@a.com"));
+        return "redirect:/getUser";
+    }
+
+    @GetMapping("/getUser")
+    public String getUser(@ModelAttribute("user") User user) {
+        return "redirect:/getUser2";
+    }
+}
+````
+* /users 으로 요청하면 1->2->3 순서로 처리된다.
+  1. `model.addAttribute("user", new User("springmvc", "a@a.com"));`
+  2. `@SessionAttributes("user")`
+  3. `getUser(@ModelAttribute("user") User user)`
+* @SessionAttributes("user")가 정의되어 있을 경우 1차적으로 세션에서 User 객체를 찾고 존재하지 않으면 다음으로 수행한다.
+* users() 이 호출되고 Model에 "user" 이름으로 객체를 저장한다.
+* users() 메서드 실행 이후 @SessionAttributes("user")의 속성명과 모델에 저장한 속성명("user")이 동일한 경우 세션에 객체를 저장한다.
+* getUser() 메서드를 실행하면 2번 과정을 통해 세션에 저장된 User 객체가 Model에 저장되며 그 Model 로부터 User 객체를 꺼내어 와서 매개변수로 전달한다.
+
+### @SessionAttributes 기본 –@ModelAttribute 와 함께 사용하는 경우
+```java
+@Controller
+@SessionAttributes("user")  
+public class UserController2 {
+    @GetMapping("/users")
+    public String users(Model model) {
+        // model.addAttribute ("user",new User("springmvc","a@a.com"));
+        return "redirect:/getUser";
+    }
+
+    @GetMapping("/getUser")
+    public String getUser(@ModelAttribute("user") User user, Model model) {
+        return "redirect:/getUser2";
+    }
+}
+```
+* @ModelAttribute와 함께 사용하는 경우 다음과 같이 처리된다.
+* @ModelAttribute와 @SessionAttributes의 속성명을 체크해서 서로 동일한 속성명을 가지고 있는지 체크한다.
+* 속성명이 동일할 경우 먼저 Model에 User 객체가 존재하는지 체크하고 없으면 다음으로 수행한다.
+* 마지막으로 세션에서 객체를 찾는데 세션에도 존재하지 않으면 'Expected session attribute 객체이름'와 같은 오류가 난다.
+* 이것을 해결하기 위해서는 아래 메서드처럼 Model 에 객체를 직접 추가 하든지 아니면 메서드 위에 @ModelAttribute를 추가해서 Model 에 담긴 객체를 세션에 연결해 주도록 해야 한다
+```java
+@ModelAttribute
+public User addUser() {
+    return new User("springmvc", "springmvc@gmail.com");
+}
+```
+
+### @SessionAttributes 기본 –세션 초기화
+* 세션 초기화는 서버에서 특정 세션에 저장된 데이터를 삭제하고세션 상태를 초기화하는 과정을 말한다.
+
+### SessionStatus
+* Spring에서는 SessionStatus 사용하여 세션 데이터를 제거할 수 있으며 세션 초기화 후에는 보통 다른 페이지로 리다이렉트하여 새로운 세션이 시작될 준비를 한다.
+
+```java
+@Controller
+@SessionAttributes("user")  // "user" 속성을 세션에 저장
+public class UserController {
+    @PostMapping("/clearSession")
+   public String clearSession(SessionStatus sessionStatus) {
+        sessionStatus.setComplete();    // "user" 속성만 세션에서 제거
+        return "redirect:/userForm";
+    }
+}
+```
+* 세션 초기화 범위는 컨트롤러에서 @SessionAttributes로 선언된 세션 속성들에 한정된다.
+* SessionStatus.setComplete()는 해당 컨트롤러에서 관리하는 특정 세션 속성들만을 초기화(삭제)하고, 다른 곳에서 저장된 세션 데이터나 전체 세션 자체를 삭제하지는 않는다.
+* 세션 전체 무효화를 원한다면 HttpSession.invalidate()를 사용할 수 있다.
+
+### 흐름도
+```mermaid
+flowchart LR
+    client --> DispatcherServlet --> RequestMappingHandlerAdapter --> ModelFactory --> SessionAttributesHandler
+   SessionAttributesHandler --> SessionAttributeStore
+   SessionAttributesHandler --> Model --> ServletInvocableHandlerMethod --> Controller
+   Controller --모델에_객체저장--> Model
+   Controller --> ModelFactory --> SessionAttributeStore --> Session
+```
+
 ## @SessionAttribute
+### 개요
+* @SessionAttribute는 세션에 저장된 특정 속성을 메서드 파라미터로 가져오기 위해 사용되는 애노테이션이다.
+* 세션에 저장된 속성 값을 컨트롤러의 메서드에서 직접 접근할 수 있도록 해주며 전역적으로 관리되는 세션 속성에 접근할 때 유용하게 사용할 수 있다.
+
+#### @SessionAttribute vs HttpSession
+```java
+@GetMapping("/getUser")
+public String getUser(@SessionAttribute(name = "user", required = false) User user) {
+    if (user != null) {
+        System.out.println("User from session: " + user.getName());
+    } else {
+        System.out.println("No user in session");
+    }
+}
+```
+````java
+@GetMapping("/getUser")
+public String getUser(HttpSession session) {
+   User user = (User) session.getAttribute("user"); // 객체를 얻고 타입 변환
+   if (user != null) {
+      System.out.println("User from session: " + user.getName());
+   } else {
+       System.out.println("No user in session");
+   }
+   return "userPage"; // 사용자 정보를 보여주는 페이지로 이
+}
+````
+* @SessionAttribute(name = "user", required = false) - 세션에 저장된 user 속성을 읽어온다.
+* required = false로 설정하면 세션에 user 속성이 없을 경우 null이 반환되고 있으면 해당 속성 값에 접근해 사용자 이름을 출력한다.
+* required = true(기본값)로 설정하면해당 속성이 세션에 반드시 있어야 하며 없으면 예외가 발생한다.
+
 ## RedirectAttributes & Flash Attributes
+### 개요
+* 웹 애플리케이션에서 페이지 이동 중 데이터 전달이 필요한 경우가 발생한다.
+
+### 문제점
+* URL에 데이터 포함
+  * 보안적으로 불안정하며 사용자가 URL에서 민감한 정보를 볼 수 있다는 단점이 있다.
+* 세션 사용
+  * 세션을 이용하여 데이터를 전달할 수도 있지만 세션은 당므 요청 이후에도 남아 있는 데이터를 수동으로 제거해야 하며 메모리를 많이 사용할 수 있다.
+* 일회성 데이터 필요
+  * 많은 경우 리다이렉트 후 한 번만 사용할 데이터를 전달하는 것이 필요하다.
+
+### RedirectAttributes & Flash Attributes 등장
+* RedirectAttributes는 리다이렉트 요청 시 데이터를 안전하고 효율적으로 전달할 수 있도록 돕는 인터페이스이다.
+* 리다이렉트 요청 간에 필요한 데이터를 URL에 포함할 수 있으며 FlashAttributes를 사용해서 URL에 표시되지 않도록 임시 데이터를 세션을 통해 전달할 수 도 있다.
+
+### Post-Redirect-Get 패턴
+* RedirectAttributes와 FlashAttributes는 주로 Post-Redirect-Get 패턴에 유용하게 사용되는데 사용자가 폼을 제출한 후 URL에서 폼을 다시 불러오는 대신 다른 페이지로 리다이렉트 시키는 패턴을 말한다.
+* 이 패턴을 통해 중복 제출 방지 및 리다이렉트된 페이지에서 Flash Attributes를 통해 성공 또는 에러 메시지를 전달하여 사용자에게 정보를 표시할 수 있다.
+
+### Flash Attributes
+* Spring MVC는 Flash Attributes를 지원하기 위해 두 가지 추상화인 FlashMap과 FlashMapManager 제공한다. 
+  * FlashMap은 플래시 속성을 저장하는 데 사용된다. 
+  * FlashMapManager는 FlashMap 객체를 저장, 조회 및 관리하는 역할을 한다.
+
+### PRG 흐름도
+Post - Redirect
+```mermaid
+flowchart
+    DispatcherServlet --> Request --> RedirectAttributesMethodArgumentResolver --> ModelAndViewContainer
+    ModelAndViewContainer --> RedirectAttributesModelMap
+    ModelAndViewContainer --> ServletInvocableHandlerMethod --> Controller --> RedirectAttributesModelMap --> Request
+    Request --> RedirectView --> FlashMapManager --> HttpSession --> sendRedirect 
+    subgraph Request
+        FlashMap
+    end
+```
+
+Redirect - GET
+```mermaid
+flowchart
+    DispatcherServlet --> FlashMapManager --> Request --> ModelAndViewContainer --> ServletInvocableHandlerMethod --> Controller --> BindingAwareModelMap --> Map --> Thymeleaf --> Html
+    FlashMapManager --1회성--> Session
+    ModelAndViewContainer --> RedirectAttributesModelMap 
+    subgraph Request
+        FlashMap
+    end
+    subgraph Session
+        FlashMap
+    end
+```
+
+
 ## 커스텀 HandlerMethodArgumentResolver
 ## DataBinder
 ## @InitBinder
