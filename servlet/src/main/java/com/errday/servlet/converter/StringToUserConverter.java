@@ -1,5 +1,6 @@
-package com.errday.servlet;
+package com.errday.servlet.converter;
 
+import com.errday.servlet.domain.User;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.stereotype.Component;
 

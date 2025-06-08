@@ -1,4 +1,4 @@
-package com.errday.servlet;
+package com.errday.servlet.domain;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

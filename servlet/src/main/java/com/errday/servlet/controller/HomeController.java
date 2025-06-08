@@ -1,4 +1,4 @@
-package com.errday.servlet;
+package com.errday.servlet.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

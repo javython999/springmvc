@@ -753,7 +753,137 @@ flowchart
     end
 ```
 
-
 ## 커스텀 HandlerMethodArgumentResolver
+* @CurrentUser라는 애노테이션을 붙인 컨트롤러 파라미터에 로그인 사용자 정보를 자동으로 주입해 주는 기능을 만들고자 한다.
+
+### 클래스 정의
+1. AuthFilter
+   * 필터 단계에서 인증 로직을 수행하고, 인증된 사용자 정보를 request.setAttribute에 저장한다.
+2. FilterConfig
+   * SpringBoot에서 AuthFilter를 등록하기 위해 FilterRegistrationBean을 설정하는 구성 클래스이다.
+3. @CurrentUser
+   * 컨트롤러 메서드 파라미터에 붙여, 인증된 사용자 객체를 주입받기 위한 커스텀 애노테이션이다.
+4. CurrentUserArgumentResolver
+   * 컨트롤러 파라미터에 @CurrentUser가 붙어 있으면, request에서 LoginUser 정보를 찾아 파라미터에 주입한다.
+5. WebConfig
+   * 스프링 MVC 설정을 담당하며, CurrentUserArgumentResolver를 addArgumentResolvers를 통해 등록한다.
+6. LoginUser
+   * 인증된 사용자의 ID, 이름 등 필요한 정보를 담는 DTO(또는 VO) 역할을 한다.
+7. DemoController
+   * @CurrentUser LoginUser 파라미터를 통해 자동 주입된 사용자 정보를 활용해 로직을 처리하는 예시 컨트롤러이다.
+
+#### 처리 과정
+1. 클라이언트가 HTTP 요청을 보낸다.
+2. 등록된 필터(AuthFilter)가 먼저 실행되어 인증 정보를 확인한다.
+3. 인증 성공 시 AuthFilter에서 LoginUser 객체를 생성해 request.setAttribute로 저장한다.
+4. 필터 체인 통과 후, 스프링의 DispatcherServlet이 컨트롤러를 찾는다.
+5. 스프링은 컨트롤러 파라미터를 분석해 @CurrentUser와 LoginUser 타입을 확인한다.
+6. CurrentUserArgumentResolver가 request.getAttribute("LOGIN_USER")를 꺼내 파라미터에 주입한다.
+7. 컨트롤러 메서드는 주입된 LoginUser 정보를 사용해 응답을 처리한다.
+
 ## DataBinder
+* HTTP 요청에 대한 데이터 바인딩 방식은 크게 두 가지로 구분할 수 있는데 바로 쿼리 파라미터 및 폼 데이터 바인딩과 HTTP 본문 데이터 바인딩이다.
+
+#### 데이터 바인딩 분류
+1. 쿼리 파라미터 및 폼 데이터 바인딩
+   * 기본형, 문자열, 래퍼 클래스
+     * @RequestParam 적용하여 RequestParamMethodArgumentResolver가 요청 처리
+     * @PathVariable 적용하여 PathVariableMethodArgumentResolver가 적용 처리
+   * 객체: @ModelAttribute 적용하여 ServletModelAttributeMethodProcessor가 요청 처리
+2. HTTP 본문 바인딩
+   * Text, JSON: @RequestBody 적용하여 RequestResponseBodyMethodProcessor와 HttpMessageConverter가 요청 처리
+
+#### DataBinder vs HttpMessageConverter
+* DataBinder
+  * 웹 요청 파라미터를 객체에 바인딩
+  * 주로 폼 데이터(key-value), 쿼리 스트링, URL 패스 변수
+  * 메서드의 파라미터에 @ModelAttribute을 선언해서 사용
+  * 바인딩에 필요한 타입변환과 검증 과정을 거침
+* HttpMessageConverter
+  * HTTP 요청/응답 본문을 객체로 변환하거나 객체를 HTTP 본문으로 qusghks
+  * JSON, XML, Plain Text, Binary 등 HTTP 본문 데이터
+  * @RequestBody, @ResponseBody, HttpEntity, ResponseEntity 등과 함께 사용 본문 변환 후 검증 과정만 거침
+
+#### DataBinder
+* Spring의 DataBinder는 크게 3가지 특징을 가지고 있는데 바로 HTTP 요청파라미터를 객체에 바인딩 하고 타입변환 과정 및 유효성 검증을 진행하는 것이다.
+
+```mermaid
+flowchart LR
+    DataBinder --> BindingResult
+    DataBinder --> Converter
+    DataBinder --> Validator    
+```
+* 데이터 바인딩 - 요청 파라미터를 모델 객체의 속성에 자동으로 할당
+* 타입변환 - 클라이언트의 요청 문자열로 전달된 데이터를 적절한 형식으로 변환
+* 유효성 검증 - 데이터가 유효한지 확인하고, 유효성 검사 오류를 기록
+
+#### 계층도
+```mermaid
+flowchart BT
+    ExtendedServletRequestDataBinder --> ServletRequestDataBinder --> WebDataBinder --> DataBinder
+    DataBinder --> PropertyEditorRegistry
+    DataBinder --> TypeConverter
+```
+
 ## @InitBinder
+1. @InitBinder는 요청 파라미터를 객체의 속성에 바인딩할 때 데이터 바인딩 설정을 커스터마이징 하기 위한 애노테이션이다. (날짜형식,숫자 형식 등을 지정)
+   * @Controller에서 @InitBinder를 사용하면 해당 컨트롤러 내에서만 적용
+   * @ControllerAdvice 와 함께 사용하면 모든 컨트롤러에 적용
+2. @InitBinder는 커스텀 유효성 검증기를 등록하여 검증 시 사용할 수 있다. 
+3. 데이터 바인딩 시 외부 클라이언트가 필드를 임의로 설정하지 못하도록 allowedFields나 disallowedFields 설정을 통해 허용 또는 차단할 필드를 지정할 수 있다.
+4. @InitBinder를 사용하여 PropertyEditor 또는 Formatter를 등록할 수 있다. 이를 통해 일반적인 데이터 변환 외에 복잡한 데이터 변환 규칙을 적용할 수 있다.
+
+#### 메서드 선언
+* @InitBinder 메서드는 보통 WebDataBinder 인수를 가지며, 리턴 값이 없는 void 타입이다.
+```java
+@InitBinder
+public void initBinder(WebDataBinder binder) {}
+```
+#### WebDataBinder
+* void setAllowedFields(@Nullable String... allowedFields) : 바인딩 허용 필드 설정
+* void setDisallowedFields(@Nullable String... disallowedFields) : 바인딩 차단 필드 설정
+* void registerCustomEditor(Class<?> requiredType, PropertyEditor propertyEditor) : 특정 데이터 타입에 대해 커스텀 변환기를 등록
+* void addValidators(Validator... validators) : 커스텀 유효성 검사기 설정
+* void setRequiredFields(@Nullable String... requiredFields) : 필수 필드를 지정하여 요청 파라미터에 포함되어야 함을 보장
+
+#### @InitBinder 를 사용한 날짜 형식 지정
+```java
+@InitBinder
+public void initBinder(WebDataBinder binder) {
+    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+    dateFormat.setLenient(false); //엄격한 검사를 실행하도록 설정함
+    // 날짜 형식의 변환기를 등록함
+    binder.registerCustomEditor(Date.class, new CustomDateEditor(dateFormat, false));
+}
+
+@RequestMapping(value = "/submitDate", method = RequestMethod.POST) {
+    if (result.hasErrors()) {
+        model.addAttribute("errors", result.getAllErrors());
+        return "dateForm";
+    }
+}
+```
+#### @ControllerAdvice 를 이용한 전역적 바인딩 설정
+* @ControllerAdvice에 @InitBinder를 선언하면 모든 컨트롤러에서 전역적으로 데이터 바인딩 설정이 적용된다.
+
+```java
+@ControllerAdvice
+public class GlobalExceptionHandler {
+    
+    @InitBinder
+    public void initBinder(WebDataBinder binder) {
+        // email 필드는 바인딩에서 제외
+        binder.setDisallowedFields("email");
+    }
+    
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseBody
+    public Map<String, String> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        for (FieldError error : ex.getBindingResult().getFieldErrors()) {
+            errors.put(error.getField(), error.getDefaultMessage());
+        }
+        return errors;
+    }
+}
+```
