@@ -4,9 +4,8 @@ import com.errday.servlet.annotation.CurrentUser;
 import com.errday.servlet.domain.LoginUser;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
 
-@RestController
+//@RestController
 public class ArgumentResolverController {
 
     @GetMapping("/users")

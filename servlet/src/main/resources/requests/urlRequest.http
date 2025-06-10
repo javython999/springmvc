@@ -2,7 +2,7 @@
 POST http://localhost:8080/url
 Content-Type: application/x-www-form-urlencoded
 
-protocol=http&domain=www.springmvc.com&port=8080
+url=http://www.springmvc.com:8080
 
 ### Send GET request
 GET http://localhost:8080/url?url=http://www.springmvc.com:8080

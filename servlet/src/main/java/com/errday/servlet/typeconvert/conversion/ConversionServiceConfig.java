@@ -16,7 +16,6 @@ public class ConversionServiceConfig {
         DefaultConversionService conversionService = new DefaultConversionService();
         conversionService.addConverter(new StringToUrlConverter());
         conversionService.addConverter(new UrlToStringConverter());
-        log.info("conversionService: {}", conversionService);
         return conversionService;
     }
 }

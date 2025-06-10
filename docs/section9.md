@@ -78,7 +78,90 @@ flowchart BT
 ```
 
 ## Converter 스프링 적용
+### WebMvcConfigurer 에 Converter 등록하기
+* 앞에서 수동으로 변환했던 작업을 스프링에 의한 자동 변환 방식으로 적용되도록 WebMvcConfigurer를 사용해 Converter 를 등록한다.
+* FormatterRegistry는 웹에서 전반적으로 사용되는 WebConversionService 구현체가 전달된다.
+```java
+@Configuration
+public class WebConfig implements WebMvcConfigurer {
+    @Override
+    public void addFormatters(FormatterRegistry registry) {
+        registry.addConverter(new StringToUrlConverter());
+        registry.addConverter(new UrlToStringConverter());
+        registry.addConverter(newStringToUserConditionalConverter());        
+        registry.addConverterFactory(newStringToEnumConverterFactory());
+    }
+ }
+```
+
+### 바인딩과 타입변환 관계
+* DataBinder의 역할
+  * DataBinder는 요청 데이터를 객체로 바인딩하는 클래스로서 HTTP 요청 파라미터를 자바 객체의 속서에 매핑한다.
+* ConversionService의 역할
+  * ConversionService는 타입 변환에 특화된 서비스로서 바인딩 중 필요한 경우 Converter를 호출해 특정 필드 값을 변환한다.
+* DataBinder와 ConversionService의 상호 작용
+  * DataBinder는 필요한 경우 ConversionService를 통해 요청 데이터를 변환하고 변환된 데이터를 객체 필드에 할당한다.
+  * 바인딩 중에 타입변환이 실패하게 되면 예외가 발생해 바인딩을 더 이상 진행하지 않거나 BindingResult를 사용해 오류를 남기고 계속 바인딩을 진행할 수 있다.
+
+* @RequestParam에 지정된 매개변수가 객체인 경우 보통 컨버터가 등록 안되어 있기 때문에 오류가 발생한다.
+* 객체를 지정해서 사용할 경우는 @ModelAttribute를 사용하거나 객체타입으로 변환할 수 있는 컨버터를 만들어야 한다.
+
+#### @ModelAttribute 동작 방식
+* @ModelAttribute는 클라이언트의 요청 유형에 따라 객체 바인딩 방식과 타입변환 방식으로 객체가 생성되어 메서드에 전달된다.
+
+1. 객체 바인딩 방식
+```java
+@PostMapping("/url")
+public String saveUrl(@ModelAttribute Url url) {
+    return "Url : " + url;
+}
+```
+```java
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Url {
+  private String protocol;
+  private String domain;
+  private String port;
+}
+```
+```
+POST http://localhost:8080/url
+Content-Type: application/x-www-form-urlencoded
+protocol=http&domain=www.springmvc.com&port=8080
+```
+2. 타입 변황 방식
+```java
+@PostMapping("/url")
+public String saveUrl(@ModelAttribute Url url) {
+    return "Url : " + url;
+}
+```
+```java
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Url {
+  private String protocol;
+  private String domain;
+  private String port;
+}
+```
+```
+POST http://localhost:8080/url
+Content-Type: application/x-www-form-urlencoded
+url=http://www.springmvc.com:8080
+```
 ## Formatter
+### 개요
+* Converter는 범용 타입 변환 시스템이다. 즉 타입에 제한 없이 데이터 타입 간 일반적인 변환을 다루는데 목적이 있다.
+* Formatter는 특정한 환경(예: 웹 애플리케이션)에서 데이터를 특정 형식에 맞게 변환하거나특정 형식에서 객체로 변환하는 것에 목적이 있다.
+* Converter는 로컬화(Localization)를 고려하지 않지만 Formatter는 지역(Locale)에 따라 데이터 표현방식을 다르게 처리할 수 있다.
+* Converter가 주로 서버 내부 데이터 변환에 사용된다면 Formatter는 뷰(View) 와 클라이언트 간 데이터 변환에 사용된다고 볼 수 있다.
+
+
+
 ## Formatting ConversionService
 ## Formatter 스프링 적용
 ## 애너테이션 기반 포맷팅
