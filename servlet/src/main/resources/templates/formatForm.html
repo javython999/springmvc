@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+  <form th:action="@{/submit}" th:object="${myModel}" method="post">
+    <label for="price">Price (Currency)</label>
+    <input type="text" id="price" name="price" th:field="*{price}">
+    <br>
+    <label for="date">Purchase Date (yyyy-MM-dd)</label>
+    <input type="text" id="date" name="date" th:field="*{date}">
+    <br>
+    <button type="submit">Submit</button>
+  </form>
+</body>
+</html>

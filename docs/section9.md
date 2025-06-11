@@ -160,8 +160,54 @@ url=http://www.springmvc.com:8080
 * Converter는 로컬화(Localization)를 고려하지 않지만 Formatter는 지역(Locale)에 따라 데이터 표현방식을 다르게 처리할 수 있다.
 * Converter가 주로 서버 내부 데이터 변환에 사용된다면 Formatter는 뷰(View) 와 클라이언트 간 데이터 변환에 사용된다고 볼 수 있다.
 
-
-
 ## Formatting ConversionService
+### 개요
+* FormattingConversionService는 Converter와 Formatter를 통합적으로 등록할 수 있는 구현체로서 타입 변환과 로컬화된 데이터 포맷팅을 함께 처리할 수 있다.
+
+#### FormattingConversionService
+```mermaid
+flowchart LR
+    A --> FormattingConversionService
+    FormattingConversionService --> Converter --> B
+    FormattingConversionService --> Formatter --> C
+```
+
+#### 클래스 계층도
+```mermaid
+flowchart BT
+  WebConversionService --> DefaultFormattingConversionService --> FormattingConversionService --> GenericConversionService --> ConfigurableConversionService
+  ConfigurableConversionService --> ConversionService
+  ConfigurableConversionService --> ConverterRegistry
+  FormattingConversionService --> FormatterRegistry
+```
+
 ## Formatter 스프링 적용
+### WebMvcConfigurer 에 Formatter 등록하기
+```java
+@Configuration
+public class WebConfig implements WebMvcConfigurer {
+    @Override
+    public void addFormatters(FormatterRegistry registry) {
+        registry.addFormatter(new KoreanCurrencyFormatter());
+    }
+}
+```
+
 ## 애너테이션 기반 포맷팅
+### 개요
+* 기본 포맷터는 전체적으로 동일한 형식으로만 동작하기 때문에각 필드마다 다른 형식을 지정하려는 요구사항을 처리하기 어렵다.
+
+* 애노테이션 기반 포맷터(AnnotationFormatterFactory)를 활용하면필드별로 포맷을 다르게 지정할 수 있다
+```java
+public class MyModel {
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
+    private Date startDate;
+
+    @DateTimeFormat(pattern = "yyyy/MM/dd")
+    private Date endDate;
+ }
+```
+
+### AnnotationFormatterFactory
+* AnnotationFormatterFactory는 특정 어노테이션이 붙은 필드의 값을 지정된 형식으로 변환해 주는 Formatter 를 생성하는 팩토리 클래스이다.
+* 예를 들어 Jsr310DateTimeFormatAnnotationFormatterFactory는 @DateTimeFormat 애노테이션이 붙은 필드에서 날짜(LocalDateTime) 값을 지정된 형식으로 변환해주는 Formatter를 만들어 사용할 수 있다.

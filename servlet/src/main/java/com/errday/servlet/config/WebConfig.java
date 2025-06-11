@@ -1,23 +1,14 @@
 package com.errday.servlet.config;
 
-import com.errday.servlet.converter.StringToUserConverter;
-import com.errday.servlet.filter.MyAuthFilter;
-import com.errday.servlet.resolver.CurrentArgumentResolver;
-import com.errday.servlet.typeconvert.StringToUrlConverter;
-import com.errday.servlet.typeconvert.factory.StringToEnumConverterFactory;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import com.errday.servlet.annotationconverter.CustomCurrencyFormatterFactory;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.Ordered;
 import org.springframework.format.FormatterRegistry;
-import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
-import java.util.List;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    @Override
+    /*@Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
         resolvers.add(new CurrentArgumentResolver());
     }
@@ -35,5 +26,10 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addConverter(new StringToUrlConverter());
         registry.addConverter(new StringToUserConverter());
         registry.addConverterFactory(new StringToEnumConverterFactory());
+    }*/
+
+    @Override
+    public void addFormatters(FormatterRegistry registry) {
+        registry.addFormatterForFieldAnnotation(new CustomCurrencyFormatterFactory());
     }
 }
