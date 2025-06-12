@@ -1,0 +1,26 @@
+POST http://localhost:8080/validation
+Content-Type: application/x-www-form-urlencoded
+
+username=springmvc&age=10
+
+###
+
+POST http://localhost:8080/non-validation
+Content-Type: application/x-www-form-urlencoded
+
+username=springmvc&age=ddd
+
+###
+
+POST http://localhost:8080/validation/2
+Content-Type: application/x-www-form-urlencoded
+
+username=springmvc&age=ddd
+
+
+###
+
+POST http://localhost:8080/users
+Content-Type: application/x-www-form-urlencoded
+
+username=springmvc&age=ten
