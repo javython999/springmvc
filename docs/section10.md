@@ -98,10 +98,87 @@ flowchart LR
 ### 오류 객체사용
 * ObjectError 와 FieldError 는 생성자를 통해 오류 정보를 전달 받는다.
 
-
 ## BindingResult 입력값 보존하기
+### 개요
+* FieldError 및 ObjectError 클래스는 두 개의 생성자가 있으며 이 두 생성자는 오류의 상세 정도에 따라 사용되며두 번째 생성자는 보다 세부적인 오류 정보를 포함한다.
+* 첫 번째 생성자는 객체 이름, 필드 이름, 그리고 기본 오류 메시지를 사용해 FieldError를 생성한다. 이때거부된 값(rejectedValue)이나 다른 상세 정보(바인딩 실패 여부, 메시지 코드 등)는 포함하지 않는다.
+
+`bindingResult.addError(new FieldError("order", "quantity", "수량은 0보다 커야 합니다."));`
+
+### 두번째 생성자 API
+`FieldError(String objectName, String field, Object rejectedValue, boolean bindingFailure, String[] codes, Object[] arguments, String defaultMessage)`
+1. objectName: 오류가 발생한 객체 이름
+2. field: 오류가 발생한 필드 이름
+3. rejectedValue: 클라이언트가 입력한 잘못된 값
+4. bindingFailure: 데이터 바인딩 실패 여부 (true면 바인딩 실패, 스프링에서 바인딩 하다가 난 오류인지 아닌지 구분할 수 있다)
+5. codes: 오류 코드 목록 (메시지 소스에서 사용)
+6. arguments: 메시지에 사용될 인자 목록
+7. defaultMessage: 기본 오류 메시지
+
+### 구현 예제
+* 사용자가 입력한 내용이 잘못되어 바인딩 오류가 발생하면 서버는 클라이언트에게 오류 정보를 전달해서 화면에 보여준다.
+* 문제는 기존의 사용자 화면에 잘 못 입력한 내용까지 다 사라지게 된다는 것이다. FieldError 객체의 rejectedValue 속성을 활용하면 이 문제를 해결할 수 있다.
+
+```html
+<form th:action="@{/order}" th:object="${order}" method="post">
+    <!-- 글로벌 오류 (ObjectError) 출력 -->
+    <div th:if="${#fields.hasGlobalErrors()}">
+        <p th:each="error : ${#fields.globalErrors()}" th:text="${error}">글로벌 오류 메시지</p>
+    </div>
+    
+    <!-- 상품명 -->
+    <label>상품명: <input type="text" th:field="*{productName}" /></label>
+    
+    <!-- 수량 -->
+    <label>수량: <input type="number" th:field="*{quantity}" /></label>
+    
+    <span th:if="${#fields.hasErrors('quantity')}" th:errors="*{quantity}">수량 오류</span><br/>
+    <!-- 가격 -->
+    <label>가격: <input type="text" th:field="*{price}" /></label>
+    <span th:if="${#fields.hasErrors('price')}" th:errors="*{price}">가격 오류</span><br/>
+    <button type="submit">제출</button>
+</form>
+```
 
 ## BindingResult와 MessageSource 연동
+### 개요
+* DataBinder의 바인딩 시 발생한 오류나 BindingResult의 유효성 검증 오류가 발생했을 때 MessageSource를 사용해서 해당 오류메시지를 사용자에게 제공할 수 있다.
+* 이 방식은 유효성 검증에 필요한 오류 메시지를 외부 파일(properties 파일 등)에서 검색 및 관리할 수 있다. 즉 오류 메시지를 MessageSource에 위임한다고 보면 된다.
+
+### MessageSource 오류 메시지
+`FieldError(String objectName, String field, Object rejectedValue, boolean bindingFailure, String[] codes, Object[] arguments, String defaultMessage)`
+
+1. codes: 오류 코드 목록 (메시지 소스에서 사용)
+2. arguments: 메시지에 사용될 인자 목록
+
+### 개요
+* ObjectError 또는 FieldError API를 사용해서 오류 코드를 기입하는 방식은 세밀한 제어는 가능하나 번거롭고 관리적인 측면에서 간단하지 않다.  
+* BindingResult에는 FieldError를 사용하지 않고 오류 코드를 자동화하고 광범위하게 MessageSource와 연동하는 API를 제공하고 있다.
+
+### reject() / rejectValue()
+* field: 오류 필드 이름
+* errorCode: 오류 코드 (메시지 소스에서 사용)
+* errorArgs: 메시지에 사용될 인자 목록
+* defaultMessage: 기본 오류 메시지
+
+### MessageCodesResolver
+* MessageCodesResolver는 검증 오류 발생 시 오류 메시지의 메시지 코드를 생성하는 인터페이스이다.
+* 유효성 검증 시 필드 오류 또는 글로벌 오류가 발생하면이 오류들을 MessageSource와 연동하여 해당 오류 메시지를 찾기 위한 메시지 코드 목록을 생성한다.
+
+### 오류 메시지 전략
+* 일반적으로 어떤 기능의 오류 메시지를 표현 할 때는 범용적인 것과 세부적인 것들을 잘 구분해서 설정하게 된다.
+* 스프링은 오류 메시지를 표현할 수 있도록 객체 기준 2개, 필드 기준 4개로 구분해서 오류코드 목록을 생성 해준다.
+* 즉 reject() 혹은 rejectValue() API가 실행되면 내부적으로 MessageCodesResolver가 오류 코드를 생성하고 그 오류 코드를 MessageSource가 참조해서 오류 메시지를 검색한다.
+
+### 구조
+```java
+public interface MessageCodesResolver {
+ String[] resolveMessageCodes(String errorCode, String objectName); // 오류코드, 객체이름
+}
+```
+* MessageCodesResolver는 객체오류인 경우 두 가지, 필드 오류인 경우 네 가지 형식으로 오류 코드를 생성한다.
+* 각 코드 형식은 우선순위에 따라 적용되는데 가장 구체적인 규칙부터 범용적인 규칙순으로 찾고 적용된다.
+* 스프링은 기본 구현체인 DefaultMessageCodesResolver를 제공하고 있다.
 
 ## Validator
 
