@@ -181,8 +181,42 @@ public interface MessageCodesResolver {
 * 스프링은 기본 구현체인 DefaultMessageCodesResolver를 제공하고 있다.
 
 ## Validator
+### 개요
+* Spring의 Validator는 객체의 유효성을 검증하기 위해 설계된 인터페이스로데이터 유효성 검증을 단순화하면서 비즈니스 로직과 검증 로직을 분리하는 데 사용된다.
 
-## Bean Validator 개요
+### 구조
+* supports()
+  * 해당 Validator가 특정 객체 타입을 지원하는지 확인하는 메서드이다.
+  * 이 메서드는 일반적으로 이렇게 구현된다.
+    * Foo.class.isAssignableFrom(clazz) - Foo는 실제로 검증할 객체 인스턴스의 클래스 또는 상위 클래스이다.
+* validate()
+  * 주어진 대상 객체가 supports(Class) 메서드에서 true를 반환하는 클래스여야만 검증할 수 있다.
+  * 실제 유효성 검사를 수행하는 메서드이며 유효성 검사에 실패한 경우 Errors 객체를 사용하여 오류를 추가한다.
+
+### @InitBinder와 Validator
+* @InitBinder의 WebDatabinder 객체는 호출될 때 마다 새롭게 생성되는 객체로서 해당 컨트롤러에서만 binder의 속성이 유지된다.
+* @ModelAttribute 앞에 @Validated 어노테이션이 선언 되어 있으면 WebDatabinder 가 가지고 있는 검증기들을 실행시며 검증하게 된다.
+* @InitBinder("user")에서 "user"를 지정하게 되면 @ModelAttribute("user")에서 지정한 "user"와 동일한 경우에만 호출된다.
+
+## Bean Validator 
+### 개요
+* Bean Validation은 Java 애플리케이션에서 객체의 유효성 검증을 위해 도입된 기술로서 데이터 검증 로직을 일관되게 적용할 수 있도록 하는 표준화 된 API를 제공한다.
+* 다양한 Java 프레임워크(Spring, Jakarta EE 등)에서 공통으로 사용할 수 있도록 JSR-303(Bean Validation 1.0)과 JSR-380(Bean Validation 2.0) 표준이 제정되었다.
+
+### Bean Validation & Spring 폼 검증
+* Spring 폼 검증
+  * 개발자가 직접 검증 로직을 작성해야 하며, 각각의 필드에 대한 조건을 수동으로 명시해야 한다.
+  * 검증 중 발생한 오류는 Errors 객체에 기록되며사용자는 어떤 필드에서 어떤 오류가 발생 했는지 확인할 수 있다.
+  * 검증 조건이 복잡하거나 커스텀 검증이 필요할 때 유용하다.
+* Bean Validation
+  * 애노테이션을 사용해 검증 규칙을 선언적으로 정의할 수 있으며 개발자는 별도로 검증 로직을 작성할 필요가 없다.
+  * 객체의 필드에 선언된 애노테이션을 기반으로 자동으로 검증이 수행된다.
+  * 객체가 중첩된 경우에도 중첩된 객체에 대한 검증을 함께 수행할 수 있다.
+
+### Bean Validation 사용
+* 애노테이션 검증을 수행하기 위해서는 스프링 부트에서 제공하는 의존성을 추가해야한다.
+* Bean Validation 표준을 구현한 대표적인 기술들이 있으며 Hibernate Validator, Apache Bval 등이 있으며 주로 Hibernate Validator를 사용한다.
+
 
 ## Java Bean Validator + Spring 통합
 
