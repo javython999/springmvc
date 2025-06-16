@@ -24,3 +24,10 @@ POST http://localhost:8080/users
 Content-Type: application/x-www-form-urlencoded
 
 username=springmvc&age=ten
+
+###
+
+POST http://localhost:8080/admin
+Content-Type: application/x-www-form-urlencoded
+
+password=55555

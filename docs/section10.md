@@ -217,9 +217,148 @@ public interface MessageCodesResolver {
 * 애노테이션 검증을 수행하기 위해서는 스프링 부트에서 제공하는 의존성을 추가해야한다.
 * Bean Validation 표준을 구현한 대표적인 기술들이 있으며 Hibernate Validator, Apache Bval 등이 있으며 주로 Hibernate Validator를 사용한다.
 
-
 ## Java Bean Validator + Spring 통합
+### 개요
+* Spring에서는 org.springframework.validation.Validator를 통해 Spring의 자체 검증 메커니즘과 Java Bean Validation을 통합하고 이를 통해 Bean Validation 표준 검증을 Spring 에서 바로 활용할 수 있다.
+* Spring MVC는 컨트롤러 계층에서 @Valid 또는 @Validated를 사용하여 자동으로 Bean Validation을 수행하며 검증 실패 시 발생하는 오류를 BindingResult 를 통해 보관하고 프로그램적으로 처리할 수 있다.
+* Bean Validation 표준의 그룹(Group)화를 지원하여특정 조건에서만 검증을 수행할 수 있으며 Bean Validation을 확장하여 커스텀 Validator 를 생성할 수 있다.
+* Spring에서는 MessageSource를 통해 에러 메시지를 커스터 마이징할 수 있다.
+
+### 기본 사용법
+* 스프링에서는 애노테이션 기반 검증을 위해 @Valid와 @Validated 애노테이션을 사용할 수 있으며 사용 방식에 있어 약간 차이가 있다.
+* @Valid는 jakarta.validation에 포함되어 있고 @Validated 은 org.springframework.validation.annotation에 포함되어 있으며 @Valid 를 사용하기 위해서는 org.springframework.boot:spring-boot-starter-validation 의존성이 필요하다.
+* 두 애노테이션 모두 객체 타입에만 사용 할 수 있으며 검증할 객체 바로 앞에 위치해야 하고 검증된 결과는 BindingResult에 담긴다.
+
+`public String registerUser(@Validated @ModelAttribute("user") User user, BindingResult bindingResult) {...}`
+* 검증은 바인딩의 맨 마지막 처리 과정이며 기본적으로 바인딩에 성공한 필드는 검증이 이루어진다.
+* 만약 필드의 타입변환이 실패하면 실패 결과가 FieldError 객체에 담기고 BindingResult에 보관된다.
+* 타입변환에 실패한 필드는 기본값이 저장된 상태에서 검증이 이루어지지만 Validator 구현체에 따라 예외가 발생
+
+### @Valid
+* JSR-380 표준에 속하는 기본적인 검증 애노테이션으로서 객체의 필드뿐만 아니라 중첩된 객체(nested object)에서도 유효성 검사를 수행할 수 있다.
+* 주로 단순한 유효성 검사를 수행하는데 사용되며 jakarta.validation 패키지에 속해 있다.
+
+```java
+@PostMapping("/submitUser")
+public String submitUser(@Valid @ModelAttribute User user, BindingResult result, Model model) {
+    if (result.hasErrors()) {
+        return "userForm";
+    }
+    
+    model.addAttribute("user", user);
+    return "userSuccess";
+}
+```
+
+#### @RequestBody + @Valid
+* @RequestBody 와 @Valid 클라이언트의 요청 데이터를 Java 객체로 매핑하고 이를 검증하는데 사용된다.
+* @RequestBody는 객체 바인딩이 아닌 HttpMessageConverter가 문자열 데이터를 객체로 변환하는 방식으로 이루어진다.
+* 그래서 필드 단위로 오류를 저장하는 것이 아니기 때문에 필드 제약 오류가 아닌 타입 오류가 나면 예외(HttpMessageNotReadableException)가 발생해서 빈 검증이 더 이상 진행 되지 않고 중단된다.
+
+### @Validated
+* Spring 프레임워크에서 제공하는 애노테이션으로서 그룹 기반 검증(validation group)을 지원하며 복잡한 검증 요구사항이 있는 경우 유용하다.
+
+```java
+@PostMapping("/createUser")
+public String createUser(@Validated(VGroups.CreateGroup.class) @ModelAttribute User user, BindingResult result, Model model) {
+    if (result.hasErrors()) return "userForm";
+ 
+    model.addAttribute("user", user);
+    return "userSuccess";  // 성공 페이지로 이동
+}
+
+@PostMapping("/updateUser")
+public String updateUser(@Validated(VGroups.UpdateGroup.class) @ModelAttribute User user, BindingResult result, Model model) {
+    if (result.hasError()) {
+        return "userUpdateForm";
+    }
+    
+    model.addAttribute("user", user);
+    return "userUpdateSuccess";
+}
+```
+* username의 @NotEmpty 검증은 createUser()인 회원가입에만 적용되며 email의 @Email 검증은 createUser()와 updateUser()인 회원가입과 회원수정 모두 적용된다.
+* 예를 들어 등록하기와 수정하기를 하나의 객체를 가지고 분기해서 동시에 사용할 수는 있으나 비교적 필드나 로직이 간단한 경우는 유용하지만 필드가 많고 여러 상황에 따른 로직이 복잡 할 경우에는 등록하는 객체와 수정하는 객체를 별도로 구분하여 검증에 사용하는 것이 더 좋다.
+
+### 흐름도
+```mermaid
+flowchart
+    DispatcherServlet --> RequestMappingHandlerAdapter --> ModelAttributeMethodProcessor --> WebDataBinder --> ValidatorAdaptor
+    ValidatorAdaptor --> LocalValidatorFactoryBean --> ValidatorImpl --> ConstraintValidator --> Set_ConstraintViolation_ --> ViolationFieldError --> BindingResult
+    
+```
 
 ## Bean Validation MessageSource 연동
+* Bean Validation에서 검증 메시지는 메시지를 하드 코딩하지 않고 MessageSource를 통해 다양한 언어로 메시지를 관리할 수 있다.
+
+```mermaid
+flowchart
+    LocalValidatorFactoryBean --> ValidatorImpl
+    LocalValidatorFactoryBean --> ConstraintViolation --> Annotation["@NotBlank"] --> BindingResult --> DefaultMessageCodesResolver --> MessageSource --> validation.properties --> Thymeleaf
+```
 
 ## 커스텀 검증 애노테이션 구현
+* 커스텀 검증 애노테이션은 기본적인 유효성 검증(예: @NotNull, @Email 등) 외에 특정한 유효성 검사에 적용하기 위해 직접 애노테이션을 정의하는 방법을 말한다.
+
+### 구현 방법
+1. 유효성 검사를 위한 새로운 애노테이션을 정의한다.
+2. 실제 검증 로직을 수행하기 위한 ConstraintValidator 인터페이스를 구현한다.
+3. 애노테이션에 ConstraintValidator클래스를 연결하고 유효성 검사 시 해당 어노테이션이 ConstraintValidator를 사용하도록 한다.
+
+#### ValidPassword 애노테이션 정의
+```java
+@Documented
+@Constraint(validatedBy = PasswordValidator.class)
+@Target({ ElementType.METHOD, ElementType.FIELD })
+@Retention(RetentionPolicy.RUNTIME)
+public @interface ValidPassword {
+    String message() default "잘못된 비밀번호입니다. 비밀번호는 최소 8자 이상이어야 하며, 대문자, 소문자, 숫자를 포함해야 합니다.";
+    Class<?>[] groups() default {};
+    Class<? extends Payload>[] payload() default {};
+    int minLength() default 8; // 최소 길이 속성 추가
+}
+```
+#### PasswordValidator 클래스 구현
+```java
+public class PasswordValidator implements ConstraintValidator<ValidPassword, String> {
+    private int minLength;
+    
+    @Override
+    public void initialize(ValidPassword constraintAnnotation) {
+        this.minLength = constraintAnnotation.minLength(); // 어노테이션에서 최소 길이 설정
+    }
+    
+    @Override
+    public boolean isValid(String password, ConstraintValidatorContext context) {
+        if (password == null) {
+            return false;
+        }
+        // 비밀번호가 최소 길이와 대문자, 소문자, 숫자를 포함하는지 검사
+        boolean hasUpperCase = password.chars().anyMatch(Character::isUpperCase);
+        boolean hasLowerCase = password.chars().anyMatch(Character::isLowerCase);
+        boolean hasDigit = password.chars().anyMatch(Character::isDigit);
+        return password.length() >= minLength && hasUpperCase && hasLowerCase && hasDigit;
+    }
+}
+```
+#### 유효성 검사 클래스에 애노테이션 적용
+```java
+public class User {
+    @NotNull(message = "Password must not be null")
+    @ValidPassword(minLength = 10) // 최소 길이를 10자로 설정
+    private String password;
+
+    // Getters and Setters
+}
+```
+#### 컨트롤러에서 유효성 검사 수행
+```java
+@PostMapping("/register")
+public String registerUser(@Valid @ModelAttribute("user") User user, BindingResult bindingResult, Model model) {
+    if (bindingResult.hasErrors()) {
+        model.addAttribute("formErrors", bindingResult.getAllErrors());
+        return "register"; 
+    }
+    return "registrationSuccess";
+}
+```
