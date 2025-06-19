@@ -11,3 +11,4 @@
 # [Return Values 개요](/docs/section11.md)
 # [View, ViewResolver](/docs/section12.md)
 # [스프링 웹 MVC 핸들러 메서드 실행 구조 이해](/docs/section13.md)
+# [스프링 웹 MVC 공통 기능](/docs/section14.md)
