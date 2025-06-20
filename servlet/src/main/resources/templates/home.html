@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <P>id: <span th:text="${account?.id}"></span></P>
+    <P>username: <span th:text="${account?.username}"></span></P>
+    <P>email: <span th:text="${account?.email}"></span></P>
+    <p>message: <span th:text="${message}"></span></p>
+    <p>custom: <span th:text="${custom}"></span></p>
+    <p>date: <span th:text="${#dates.format(date, 'yyyy-MM-dd')}"></span></p>
+</body>
+</html>
