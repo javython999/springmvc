@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.Date;
 
-@Controller
+//@Controller
 public class ControllerAdviceController {
 
     @GetMapping("/model")
