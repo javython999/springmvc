@@ -1,6 +1,7 @@
 package com.errday.servlet.config;
 
 import com.errday.servlet.annotationconverter.CustomCurrencyFormatterFactory;
+import com.errday.servlet.exception.CustomHandlerExceptionResolver;
 import com.errday.servlet.interceptor.CustomInterceptor1;
 import com.errday.servlet.interceptor.CustomInterceptor2;
 import com.errday.servlet.interceptor.LoggingInterceptor;
@@ -8,8 +9,11 @@ import com.errday.servlet.interceptor.MyInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.format.FormatterRegistry;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.util.List;
 
 @Configuration
 @RequiredArgsConstructor
@@ -61,5 +65,10 @@ public class WebConfig implements WebMvcConfigurer {
 
         registry.addInterceptor(myInterceptor)
                 .addPathPatterns("/profile", "/admin");
+    }
+
+    @Override
+    public void extendHandlerExceptionResolvers(List<HandlerExceptionResolver> resolvers) {
+        resolvers.add(new CustomHandlerExceptionResolver());
     }
 }

@@ -1,0 +1,13 @@
+### Send GET request
+GET http://localhost:8080/error-view
+Accept: text/html
+
+### Send GET request
+GET http://localhost:8080/error-json
+Accept: application/json
+
+### Send GET request
+GET http://localhost:8080/error-sendError
+
+### Send GET request
+GET http://localhost:8080/error-null

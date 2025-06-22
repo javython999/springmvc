@@ -26,5 +26,24 @@ public class ErrorPageController {
         return "error/500";
     }
 
+    @GetMapping("/error-view")
+    public String throwViewError() {
+        throw new IllegalArgumentException("HTML View Error Occcurred!");
+    }
+
+    @GetMapping("/error-json")
+    public String throwJsonError() {
+        throw new IllegalStateException("JSON Error Occcurred!");
+    }
+
+    @GetMapping("/error-sendError")
+    public String throwSendError() {
+        throw new RuntimeException("sendError triggered!");
+    }
+
+    @GetMapping("/error-null")
+    public void returnNull() throws CustomException {
+        throw new CustomException();
+    }
 
 }
