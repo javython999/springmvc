@@ -224,7 +224,172 @@ flowchart
     
 ```
 
-
 ## HandlerExceptionResolver 기본 구현체들
+### 개요
+* Spring은 기본적으로 예외 처리에 사용할 수 있는 HandlerExceptionResolver 구현ㄴ체를 제공하며 각 구현체는 특정 시나리오에 따라 예외를 처리하도록 설계되어 있다.
+* 구현체는 ExceptionHandlerExceptionResolver, ResponseStatusExceptionResolver, DefaultHandlerExceptionResolver, SimpleMappingExceptionResolver로서 총 4개의 클래스가 제공된다.
+
+### 초기화 구성
+* 예외 처리시 HandlerExceptionResolverComposite가 가장 우선순위가 높으며 다음으로 resolvers에 들어 있는 순서대로 호출 된다.
+* CustomHandlerExceptionResolver를 직접 구현하게 되면 기본 구현체들 다음으로 순서가 정해진다.
+* 실무에서 가장 많이 사용하는 구현체는 ExceptionHandlerExceptionResolver이며 @ExceptionHandler 애노테이션과 함께 사용한다.
+
+### ResponseStatusExceptionResolver
+* ResponseStatusExceptionResolver는 예외에 대해 HTTP 상태 코드와 메시지를 매핑하여 클라이언트에게 반환할 수 있도록 설계된 예외 처리 전략이다.
+* 이 구현체는 두 가지 방식으로 예외 및 HTTP 상태 코드를 처리하는데 @ResponseStatus와 ResponseStatusException를 사용하여 구현한다.
+* 이 클래스는 예외를 sendError(code, msg)로 처리하기 때문에 뷰 렌더링 없이 WAS의 ErrorPage 전략에 의해 예외 처리가 이루어지도록 한다.
+
+### @ResponseStatus
+* @ResponseStatus는 code와 reason 속성으로 이루어져 있으며 resaon은 값을 직접 설정하거나 MessageSource 기능을 사용해 얻을 수 있다.
+
+```java
+@ResponseStatus(code = HttpStatus.NOT_FOUND, reason = "Resource Not Found")
+@ResponseStatus(code = HttpStatus.NOT_FOUND, reason = "error.resource")
+public class ResourceNotFoundException extends RuntimeException { ... }
+```
+
+### ResponseStatusException
+* @ResponseStatus는 정적으로 예외와 상태 코드를 매핑하기 때문에 런타임에 다른 값을 설정할 수 없다.
+* ResponseStatusException는 동적으로 상태 코드와 메시지를 설정할 수 있어 다양한 상황에서 재사용 가능하다.
+
+### DefaultHandlerExceptionResolver
+* DefaultHandlerExceptionResolver는 Spring의 표준 예외와 HTTP 상태 코드를 자동으로 매핑하여 처리하는 클래스다.
+* 주로 Spring MVC 내부에서 발생하는 예외들을 처리하며특정 예외를 HTTP 상태 코드에 매핑시켜 클라이언트로 반환하는 역할을 한다.
+* 이 클래스는 예외를 sendError(code, msg)로 처리하기 때문에 뷰 렌더링 없이 WAS의 ErrorPage 전략에 의해 예외 처리가 이루어지도록 한다.
+
+### SimpleMappingExceptionResolver
+* SimpleMappingExceptionResolver는 특정 예외와 View 이름을 매핑하여 예외 발생 시 지정된 뷰(View)로 전환해주는 클래스로서 애플리케이션 전역적으로 작동하며 모든 컨트롤러에 동일한 예외 처리 로직을 적용할 수 있다.
+* REST API 보다는 주로 HTML 기반의 전통적인 웹 애플리케이션에서 사용하기 적합하다.
+```java
+@Override
+public void extendHandlerExceptionResolvers(List<HandlerExceptionResolver>resolvers) {
+    resolvers.add(simpleMappingExceptionResolver());   
+}
+
+public SimpleMappingExceptionResolver simpleMappingExceptionResolver() {
+    SimpleMappingExceptionResolver resolver = new SimpleMappingExceptionResolver();
+    
+    Properties exceptionMappings = new Properties();// 예외와 뷰 매핑
+    exceptionMappings.put("java.lang.ArithmeticException", "errorArithmetic");// 예외는 전체 이름을 적는다
+    exceptionMappings.put("java.lang.NullPointerException", "errorNullPointer");
+    
+    resolver.setExceptionMappings(exceptionMappings);
+    resolver.setDefaultErrorView("error-default");// 기본 오류 뷰, 발생한 예외에 맞는 뷰가 없을 경우
+   
+    Properties statusCodes = new Properties(); // 뷰 이름과 HTTP 상태 코드 매핑
+    statusCodes.put("errorArithmetic ", "400");
+    statusCodes.put("errorNullPointer ", "500");
+    resolver.setStatusCodes(statusCodes);
+    return resolver;
+}
+```
+
 ## ExceptionHandlerExceptionResolver & @ExceptionHandler
+### 개요
+* ExceptionHandlerExceptionResolver는 Spring MVC의 예외 처리 메커니즘 중 가장 널리 사용되는 구현체로 컨트롤러 내부 또는 전역에서 @ExceptionHandler로 정의된 메서드를 호출하여 예외를 처리한다.
+* REST API에서는 요청 데이터나 비즈니스 로직에 따라 오류 정보를 세밀하게 제어해야 할 경우가 많은데 이런 동적이고 유연한 예외 처리가 가능하다.
+* 특정 컨트롤러와 밀접하게 연결된 예외 처리 뿐 아니라 @ControllerAdvice를 사용하면 모든 컨트롤러에서 공통적인 예외 처리 로직을 적용할 수 있다.
+
+### @ExceptionHandler
+* @ExceptionHandler는 컨트롤러에 특정 예외를 처리하기 위한 메서드를 정의할 때 사용하는 애노테이션으로서 ExceptionHandlerExceptionResolver를 통해 실행되며 컨트롤러 클래스에서만 작동하거나 @ControllerAdvice와 함께 사용하여 애플리케이션 전역적으로 동작하도록 설정할 수도 있다.
+
+### 기본구현
+```java
+@RestController
+public class UserController {
+    @GetMapping("/users/{id}")
+    public String getUser(@PathVariable String id) { 
+        throw new UserNotFoundException("User with ID " + id + " not found");
+    }
+    
+    @ExceptionHandler(UserNotFoundException.class)// 현재 컨트롤러에서 처리하고자 하는 예외를 메서드에 정의 한다
+    public ResponseEntity<String> handleUserNotFound(UserNotFoundException ex) {
+        return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
+    }
+}
+```
+
+### 우선 순위에 따른 예외 처리
+* 예외가 발생했을 때 자식 클래스 예외 처리 메서드는 항상 상위 클래스 예외 처리 메서드보다 우선적으로 호출된다.
+* 즉 구체적인 예외 클래스가 선언된 @ExceptionHandler가 우선적으로 호출되며 덜 구체적인예외 처리 메서드는 그 다음 순위로 처리된다.
+
+### 여러 개의 예외를 지정
+* 하나의 @ExceptionHandler에서 여러 예외를 동시에 처리할 수 있다.
+```java
+@GetMapping("/name}")
+public String handlePriority(@RequestParam("name") String name) {
+    if ("child1".equals(name)) {
+        throw new ChildException1("ChildException1");
+    } else if ("child2".equals(value)) {
+        throw new ChildException2("ChildException2");
+    }
+        
+    throw new ParentException("ParentException");
+}  
+
+@ExceptionHandler({ChildException1.class, ChildException2.class, ParentException.class})
+public String handleException (Exception ex) {
+    return "Exception : " + ex.getMessage();
+}    
+```
+
+### 예외를 지정하지 않는 경우
+```java
+@GetMapping("/default")
+public String handleDefault() {
+    throw new IllegalStateException("Default exception occurred!");
+}
+
+@ExceptionHandler
+public String handleIllegalStateException(IllegalStateException ex) {
+    return "Handled default exception: " + ex.getMessage();
+}
+```
+
+### ExceptionHandlerExceptionResolver 구조 이해
+```mermaid
+flowchart
+    Controller --예외발생--> Exception --> ExceptionHandlerExceptionResolver
+    ExceptionHandlerExceptionResolver --객체생성--> ExceptionHandlerMethodResolver
+    ExceptionHandlerExceptionResolver --객체생성--> ServletInvocableHandlerMethod --메서드호출--> Method --> HandlerMethodArgumentResolver
+    HandlerMethodArgumentResolver --> ResponseEntity{ResponseEntity?}
+    ResponseEntity --> |N| ModelAndView --> View --> HTML
+    ResponseEntity --> |Y| JSON --> HttpBody --> ModelAndView 
+
+```
+
+### ExceptionHandlerMethodResolver
+* 주어진 클래스와 해당 클래스의 모든 상위 클래스에서 @ExceptionHandler 메서드를 찾아내어 선언된 예외와 메서드를 매핑하는 역할을 한다.
+* ExceptionHandlerExceptionResolver는 ExceptionHandlerMethodResolver에서 찾아낸 메서드를 호출하는 구조로 되어 있다.
+
+```mermaid
+flowchart
+    ExceptionHandlerExceptionResolver --> ExceptionHandlerMethodResolver --> Controller --> mappedMethods --> ServletInvocableHandlerMethod --메서드호출--> Method
+    ExceptionHandlerExceptionResolver --> mappedMethods
+```
+
 ## ExceptionHandlerExceptionResolver & @ControllerAdvice
+### 개요
+* @ControllerAdvice는 여러 컨트롤러에서 발생하는 예외를 전역적으로 처리할 수 있는 애노테이션으로 ExceptionHandlerExceptionResolver와 결합하여 작동한다.
+* @ControllerAdvice를 사용하면 애플리케이션의 모든 컨트롤러에서 발생하는 예외를 하나의 클래스에서 통합적으로 처리할 수 있으며 이를 통해 중복 코드를 제거하고예외 흐름을 컨트롤러로부터 분리할 수 있어 유지보수에도 유리하다.
+
+### 사용방법
+* 클래스에 @ControllerAdvice를 선언하고 @ExceptionHandler 메서드를 예외타입 별로 정의한다.
+```java
+@ControllerAdvice
+public class GlobalExceptionHandler {
+    @ExceptionHandler(CustomException1.class)
+    public ResponseEntity<ErrorResponse> handleException1(CustomException1 ex) {
+        // 예외 처리 로직
+    }
+    
+    @ExceptionHandler(CustomException2.class)
+    public ResponseEntity<ErrorResponse> handleException1(CustomException2 ex) {
+        // 예외 처리 로직
+    }
+}
+```
+
+### 초기화 구성
+* ExceptionHandlerExceptionResolver 클래스는 초기화 시 @ControllerAdvice 대상 컨트롤러를 탐색하고 ControllerAdviceBean 객체와 ExceptionHandlerMethodResolver 객체를 매핑한다. 
+
